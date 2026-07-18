@@ -1,10 +1,22 @@
 'use client';
 
-import { signIn, useSession } from 'next-auth/react';
+// 変更点：SessionProvider（Wi-Fiルーター）を追加で読み込む！
+import { signIn, useSession, SessionProvider } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 
+// ① まず、Wi-Fiルーター（SessionProvider）を設置する外枠を作ります
 export default function AdminLogin() {
+  return (
+    <SessionProvider>
+      <AdminLoginContent />
+    </SessionProvider>
+  );
+}
+
+// ② そのWi-Fiの中で、実際のログイン画面（受信機）を動かします！
+// （名前を AdminLogin から AdminLoginContent に変えました）
+function AdminLoginContent() {
   const { data: session, status } = useSession();
   const router = useRouter();
 
