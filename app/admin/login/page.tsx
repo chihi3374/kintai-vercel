@@ -1,11 +1,7 @@
 'use client';
-
-// 変更点：SessionProvider（Wi-Fiルーター）を追加で読み込む！
 import { signIn, useSession, SessionProvider } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
-
-// ① まず、Wi-Fiルーター（SessionProvider）を設置する外枠を作ります
 export default function AdminLogin() {
   return (
     <SessionProvider>
@@ -13,15 +9,11 @@ export default function AdminLogin() {
     </SessionProvider>
   );
 }
-
-// ② そのWi-Fiの中で、実際のログイン画面（受信機）を動かします！
-// （名前を AdminLogin から AdminLoginContent に変えました）
 function AdminLoginContent() {
   const { data: session, status } = useSession();
   const router = useRouter();
 
   useEffect(() => {
-    // すでにログインしている場合は自動でダッシュボードへ進む
     if (status === 'authenticated') {
       router.push('/admin/dashboard');
     }
@@ -30,7 +22,6 @@ function AdminLoginContent() {
   const handleGoogleLogin = () => {
     signIn('google', { callbackUrl: '/admin/dashboard' });
   };
-
   return (
     <main className="min-h-screen bg-gray-100 flex flex-col items-center justify-center p-4">
       <div className="bg-white p-8 rounded-xl shadow-lg w-full max-w-md">
