@@ -1,14 +1,19 @@
 "use client";
-export const dynamic = "force-dynamic";
 import { useState } from "react";
-import { useSession, signOut } from "next-auth/react";
-
-export default function Dashboard() {
+import { SessionProvider, useSession, signOut } from "next-auth/react";
+export default function DashboardPage() {
+  return (
+    <SessionProvider>
+      <DashboardContent />
+    </SessionProvider>
+  );
+}
+function DashboardContent() {
   const { data: session } = useSession();
   const [storeName, setStoreName] = useState("");
   const [pin, setPin] = useState("");
   const [status, setStatus] = useState("");
-  const [sheetUrl, setSheetUrl] = useState(""); // 作成したシートのURLを保存する用
+  const [sheetUrl, setSheetUrl] = useState("");
 
   const handleCreateSystem = async () => {
     if (!storeName || !pin) {
@@ -20,7 +25,7 @@ export default function Dashboard() {
     setSheetUrl("");
 
     try {
-      // さっき作ったAPI（裏側の処理）を呼び出す！
+      // 
       const res = await fetch("/api/setup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
