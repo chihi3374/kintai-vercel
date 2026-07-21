@@ -1,6 +1,7 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { SessionProvider, useSession, signOut } from "next-auth/react";
+import { useRouter } from "next/navigation";
 
 export default function DashboardPage() {
   return (
@@ -11,19 +12,37 @@ export default function DashboardPage() {
 }
 
 function DashboardContent() {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
+  const router = useRouter();
   const [storeName, setStoreName] = useState("");
   const [pin, setPin] = useState("");
-  const [status, setStatus] = useState("");
+  const [statusText, setStatusText] = useState("");
   const [sheetUrl, setSheetUrl] = useState("");
+
+  // 💡 未ログインだったら、自動的にログインページに飛ばす！
+  useEffect(() => {
+    if (status === "unauthenticated") {
+      router.replace("/admin/login");
+    }
+  }, [status, router]);
+
+  // 読み込み中はローディング表示
+  if (status === "loading") {
+    return <div style={{ padding: "40px", textAlign: "center" }}>読み込み中...</div>;
+  }
+
+  // 未ログイン状態のときは何も表示せず（リダイレクト中）、すぐ下へ
+  if (!session) {
+    return null;
+  }
 
   const handleCreateSystem = async () => {
     if (!storeName || !pin) {
-      setStatus("店舗名とPINを入力してください！");
+      setStatusText("店舗名とPINを入力してください！");
       return;
     }
 
-    setStatus("スプレッドシートを作成中...（数秒かかります）");
+    setStatusText("スプレッドシートを作成中...（数秒かかります）");
     setSheetUrl("");
 
     try {
@@ -36,38 +55,15 @@ function DashboardContent() {
       const data = await res.json();
 
       if (data.success) {
-        setStatus(`完了！ ${storeName} の勤怠システムを作成しました！`);
+        setStatusText(`完了！ ${storeName} の勤怠システムを作成しました！`);
         setSheetUrl(data.spreadsheetUrl);
       } else {
-        setStatus(`エラー: ${data.error}`);
+        setStatusText(`エラー: ${data.error}`);
       }
     } catch (error) {
-      setStatus("通信エラーが発生しました");
+      setStatusText("通信エラーが発生しました");
     }
   };
-
-  // ログインしていない場合は、ログイン画面へのリンクを表示する
-  if (!session) {
-    return (
-      <div style={{ padding: "40px", textAlign: "center" }}>
-        <h2>管理者としてログインしてください</h2>
-        <p style={{ margin: "20px 0" }}>このページを見るには、管理者アカウントでのログインが必要です。</p>
-        <a 
-          href="/admin/login" 
-          style={{ 
-            display: "inline-block", 
-            padding: "10px 20px", 
-            backgroundColor: "#0070f3", 
-            color: "white", 
-            textDecoration: "none", 
-            borderRadius: "5px" 
-          }}
-        >
-          ログイン画面へ移動する
-        </a>
-      </div>
-    );
-  }
 
   return (
     <div style={{ padding: "20px" }}>
@@ -95,7 +91,7 @@ function DashboardContent() {
         </button>
       </div>
 
-      <p style={{ marginTop: "20px", fontWeight: "bold" }}>{status}</p>
+      <p style={{ marginTop: "20px", fontWeight: "bold" }}>{statusText}</p>
       
       {sheetUrl && (
         <div style={{ marginTop: "10px", padding: "10px", backgroundColor: "#e6ffe6", border: "1px solid #00cc00" }}>
@@ -107,9 +103,6 @@ function DashboardContent() {
       )}
       
       <button onClick={() => signOut()} style={{ marginTop: "30px" }}>ログアウト</button>
-    </div>
-  );
-}
     </div>
   );
 }
