@@ -110,3 +110,6 @@ function DashboardContent() {
     </div>
   );
 }
+    </div>
+  );
+}
