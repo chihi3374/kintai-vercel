@@ -2,6 +2,7 @@
 import { signIn, useSession, SessionProvider } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
+
 export default function AdminLogin() {
   return (
     <SessionProvider>
@@ -9,6 +10,7 @@ export default function AdminLogin() {
     </SessionProvider>
   );
 }
+
 function AdminLoginContent() {
   const { data: session, status } = useSession();
   const router = useRouter();
@@ -22,6 +24,7 @@ function AdminLoginContent() {
   const handleGoogleLogin = () => {
     signIn('google', { callbackUrl: '/admin/dashboard' });
   };
+
   return (
     <main className="min-h-screen bg-gray-100 flex flex-col items-center justify-center p-4">
       <div className="bg-white p-8 rounded-xl shadow-lg w-full max-w-md">
