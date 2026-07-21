@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { SessionProvider, useSession, signOut } from "next-auth/react";
+
 export default function DashboardPage() {
   return (
     <SessionProvider>
@@ -8,6 +9,7 @@ export default function DashboardPage() {
     </SessionProvider>
   );
 }
+
 function DashboardContent() {
   const { data: session } = useSession();
   const [storeName, setStoreName] = useState("");
@@ -25,7 +27,6 @@ function DashboardContent() {
     setSheetUrl("");
 
     try {
-      // 
       const res = await fetch("/api/setup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -36,7 +37,7 @@ function DashboardContent() {
 
       if (data.success) {
         setStatus(`完了！ ${storeName} の勤怠システムを作成しました！`);
-        setSheetUrl(data.spreadsheetUrl); // URLをセット
+        setSheetUrl(data.spreadsheetUrl);
       } else {
         setStatus(`エラー: ${data.error}`);
       }
@@ -45,7 +46,28 @@ function DashboardContent() {
     }
   };
 
-  if (!session) return <div>ログインしてください</div>;
+  // ログインしていない場合は、ログイン画面へのリンクを表示する
+  if (!session) {
+    return (
+      <div style={{ padding: "40px", textAlign: "center" }}>
+        <h2>管理者としてログインしてください</h2>
+        <p style={{ margin: "20px 0" }}>このページを見るには、管理者アカウントでのログインが必要です。</p>
+        <a 
+          href="/admin/login" 
+          style={{ 
+            display: "inline-block", 
+            padding: "10px 20px", 
+            backgroundColor: "#0070f3", 
+            color: "white", 
+            textDecoration: "none", 
+            borderRadius: "5px" 
+          }}
+        >
+          ログイン画面へ移動する
+        </a>
+      </div>
+    );
+  }
 
   return (
     <div style={{ padding: "20px" }}>
@@ -75,7 +97,6 @@ function DashboardContent() {
 
       <p style={{ marginTop: "20px", fontWeight: "bold" }}>{status}</p>
       
-      {/* URLが返ってきたらリンクを表示する */}
       {sheetUrl && (
         <div style={{ marginTop: "10px", padding: "10px", backgroundColor: "#e6ffe6", border: "1px solid #00cc00" }}>
           <p>👇 あなたのGoogleドライブに新しいファイルが作成されました！</p>
