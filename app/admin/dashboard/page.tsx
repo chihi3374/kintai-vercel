@@ -1,12 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import {
-  SessionProvider,
-  useSession,
-  signOut,
-} from "next-auth/react";
+import { SessionProvider, useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
+
+type Company = {
+  id: number;
+  store_name: string;
+  spreadsheet_id: string;
+  spreadsheet_url: string;
+};
 
 export default function DashboardPage() {
   return (
@@ -16,21 +19,14 @@ export default function DashboardPage() {
   );
 }
 
-type Company = {
-  id: number;
-  store_name: string;
-  spreadsheet_id: string;
-};
-
 function DashboardContent() {
   const { data: session, status } = useSession();
   const router = useRouter();
 
-  const [company, setCompany] = useState<Company | null>(null);
   const [loading, setLoading] = useState(true);
+  const [company, setCompany] = useState<Company | null>(null);
 
   const [storeName, setStoreName] = useState("");
-
   const [statusText, setStatusText] = useState("");
 
   // ログイン確認
@@ -40,11 +36,11 @@ function DashboardContent() {
     }
   }, [status, router]);
 
-  // 店舗情報取得
+  // 店舗取得
   useEffect(() => {
-    if (status !== "authenticated") return;
-
-    loadCompany();
+    if (status === "authenticated") {
+      loadCompany();
+    }
   }, [status]);
 
   async function loadCompany() {
@@ -66,7 +62,7 @@ function DashboardContent() {
     setLoading(false);
   }
 
-  async function handleCreateCompany() {
+  async function createCompany() {
     if (!storeName.trim()) {
       setStatusText("店舗名を入力してください");
       return;
@@ -94,8 +90,7 @@ function DashboardContent() {
 
       setStatusText("店舗を作成しました");
 
-      // 再取得
-      loadCompany();
+      await loadCompany();
 
     } catch {
       setStatusText("通信エラー");
@@ -113,59 +108,89 @@ function DashboardContent() {
   if (!session) return null;
 
   return (
-    <div style={{ padding: 30 }}>
-
+    <div
+      style={{
+        maxWidth: 700,
+        margin: "40px auto",
+        padding: 20,
+      }}
+    >
       <h1>管理者ダッシュボード</h1>
 
       <p>
-        ようこそ {session.user?.name}
+        ようこそ {session.user?.name} さん
       </p>
 
       <hr />
 
-      {/* 初回セットアップ */}
-
-      {!company && (
+      {!company ? (
         <>
-
           <h2>初回セットアップ</h2>
+
+          <p>
+            最初に店舗を作成してください。
+          </p>
 
           <input
             value={storeName}
-            onChange={(e)=>setStoreName(e.target.value)}
+            onChange={(e) => setStoreName(e.target.value)}
             placeholder="店舗名"
+            style={{
+              width: 300,
+              padding: 10,
+            }}
           />
 
           <br />
           <br />
 
           <button
-            onClick={handleCreateCompany}
+            onClick={createCompany}
+            style={{
+              padding: "10px 20px",
+            }}
           >
             店舗を作成
           </button>
-
         </>
-      )}
-
-      {/* 通常画面 */}
-
-      {company && (
+      ) : (
         <>
-
           <h2>{company.store_name}</h2>
 
           <p>
-            店舗の作成は完了しています。
+            店舗のセットアップは完了しています。
           </p>
 
-          <button>
-            スプレッドシートを開く
-          </button>
+          <a
+            href={company.spreadsheet_url}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <button
+              style={{
+                padding: "10px 20px",
+              }}
+            >
+              スプレッドシートを開く
+            </button>
+          </a>
 
+          <br />
+          <br />
+
+          {/* 次回追加 */}
+          <button
+            disabled
+            style={{
+              padding: "10px 20px",
+            }}
+          >
+            従業員管理（準備中）
+          </button>
         </>
       )}
 
+      <br />
       <br />
 
       <p>{statusText}</p>
@@ -181,7 +206,6 @@ function DashboardContent() {
       >
         ログアウト
       </button>
-
     </div>
   );
 }
