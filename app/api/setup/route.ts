@@ -1,71 +1,173 @@
 import { NextResponse } from "next/server";
 import { google } from "googleapis";
+import { getServerSession } from "next-auth";
+import { authOptions } from "../auth/[...nextauth]/route";
 import { sql } from "@/lib/db";
 
 export async function POST(req: Request) {
   try {
-    // 1. ダッシュボードから送られてきたデータを受け取る
-    const { storeName, pin } = await req.json();
+    // ===========================
+    // ログイン確認
+    // ===========================
+    const session = await getServerSession(authOptions);
 
-    if (!storeName || !pin) {
-      return NextResponse.json({ success: false, error: "店舗名とPINが必要です" }, { status: 400 });
+    if (!session?.user?.email) {
+      return NextResponse.json(
+        { success: false, error: "ログインしてください" },
+        { status: 401 }
+      );
     }
 
-    // 2. 環境変数を使ってGoogleロボット（サービスアカウント）を呼び出す
+    const adminEmail = session.user.email;
+
+    // ===========================
+    // リクエスト取得
+    // ===========================
+    const { storeName } = await req.json();
+
+    if (!storeName) {
+      return NextResponse.json(
+        { success: false, error: "店舗名を入力してください" },
+        { status: 400 }
+      );
+    }
+
+    // ===========================
+    // 既に店舗があるか確認
+    // ===========================
+    const exists = await sql`
+      SELECT id
+      FROM company_settings
+      WHERE admin_email = ${adminEmail}
+      LIMIT 1
+    `;
+
+    if (exists.length > 0) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "すでに店舗が登録されています",
+        },
+        { status: 400 }
+      );
+    }
+
+    // ===========================
+    // Google認証
+    // ===========================
     const clientEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
-    // Vercel等で改行が崩れないようにするおまじない
-    const privateKey = process.env.GOOGLE_SERVICE_ACCOUNT_KEY?.replace(/\\n/g, "\n");
+    const privateKey =
+      process.env.GOOGLE_SERVICE_ACCOUNT_KEY?.replace(/\\n/g, "\n");
+
+    if (!clientEmail || !privateKey) {
+      throw new Error("Google Service Account が設定されていません");
+    }
 
     const auth = new google.auth.JWT({
       email: clientEmail,
       key: privateKey,
       scopes: [
         "https://www.googleapis.com/auth/spreadsheets",
-        "https://www.googleapis.com/auth/drive" // 権限変更のためにDriveの権限も必要
+        "https://www.googleapis.com/auth/drive",
       ],
     });
 
-    const sheets = google.sheets({ version: "v4", auth });
-    const drive = google.drive({ version: "v3", auth });
+    const sheets = google.sheets({
+      version: "v4",
+      auth,
+    });
 
-    // 3. 新しいスプレッドシートを作成する
+    // ===========================
+    // Spreadsheet作成
+    // ===========================
     const sheet = await sheets.spreadsheets.create({
       requestBody: {
         properties: {
-          title: `${storeName} タイムカード`, // 作成されるファイル名
+          title: `${storeName} 勤怠管理`,
         },
       },
     });
 
-    const spreadsheetId = sheet.data.spreadsheetId;
-    const spreadsheetUrl = sheet.data.spreadsheetUrl;
+    const spreadsheetId = sheet.data.spreadsheetId!;
+    const spreadsheetUrl = sheet.data.spreadsheetUrl!;
 
-    // 4. 管理者（人間）がスプレッドシートを開けるように権限を付与する
-    // ※ サービスアカウントが作ったファイルは初期状態では誰も見れないため
-    if (spreadsheetId) {
-      await drive.permissions.create({
-        fileId: spreadsheetId,
-        requestBody: {
-          type: "anyone", // 誰でも
-          role: "writer", // 編集可能（リンクを知っている人限定）
-        },
-      });
-    }
-
-    // 5. 環境変数を使ってNeonデータベースに「PINとシートID」を保存する
-    await sql`
-      INSERT INTO company_settings (store_name, pin_code, spreadsheet_id)
-      VALUES (${storeName}, ${pin}, ${spreadsheetId})
-    `;
-
-    // 6. ダッシュボードに「成功したよ！URLはこれだよ！」と返す
-    return NextResponse.json({
-      success: true,
-      spreadsheetUrl: spreadsheetUrl,
+    // ===========================
+    // シート追加
+    // ===========================
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId,
+      requestBody: {
+        requests: [
+          {
+            addSheet: {
+              properties: {
+                title: "従業員",
+              },
+            },
+          },
+          {
+            addSheet: {
+              properties: {
+                title: "勤怠",
+              },
+            },
+          },
+        ],
+      },
     });
 
-  } catch (error: any) {
-    console.error("Setup API Error:", error);
-    return NextResponse.json({ success: false, error: "セットアップ中にエラーが発生しました" }, { status: 500 });
+    // ===========================
+    // ヘッダー追加
+    // ===========================
+    await sheets.spreadsheets.values.update({
+      spreadsheetId,
+      range: "従業員!A1:C1",
+      valueInputOption: "RAW",
+      requestBody: {
+        values: [["ID", "氏名", "在籍"]],
+      },
+    });
+
+    await sheets.spreadsheets.values.update({
+      spreadsheetId,
+      range: "勤怠!A1:F1",
+      valueInputOption: "RAW",
+      requestBody: {
+        values: [["日付", "従業員ID", "氏名", "出勤", "退勤", "勤務時間"]],
+      },
+    });
+
+    // ===========================
+    // DB保存
+    // ===========================
+    await sql`
+      INSERT INTO company_settings
+      (
+        store_name,
+        admin_email,
+        spreadsheet_id
+      )
+      VALUES
+      (
+        ${storeName},
+        ${adminEmail},
+        ${spreadsheetId}
+      )
+    `;
+
+    return NextResponse.json({
+      success: true,
+      spreadsheetUrl,
+    });
+  } catch (err) {
+    console.error(err);
+
+    return NextResponse.json(
+      {
+        success: false,
+        error: "セットアップに失敗しました",
+      },
+      { status: 500 }
+    );
   }
 }
