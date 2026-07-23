@@ -24,6 +24,7 @@ export async function GET() {
         id,
         store_name,
         spreadsheet_id
+        spreadsheet_url
       FROM company_settings
       WHERE admin_email = ${session.user.email}
       LIMIT 1
