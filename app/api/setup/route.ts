@@ -146,12 +146,14 @@ export async function POST(req: Request) {
         store_name,
         admin_email,
         spreadsheet_id
+        spreadsheet_url
       )
       VALUES
       (
         ${storeName},
         ${adminEmail},
         ${spreadsheetId}
+        ${spreadsheetUrl}
       )
     `;
 
