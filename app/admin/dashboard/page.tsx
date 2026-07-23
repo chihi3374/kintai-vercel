@@ -1,6 +1,11 @@
 "use client";
-import { useState, useEffect } from "react";
-import { SessionProvider, useSession, signOut } from "next-auth/react";
+
+import { useEffect, useState } from "react";
+import {
+  SessionProvider,
+  useSession,
+  signOut,
+} from "next-auth/react";
 import { useRouter } from "next/navigation";
 
 export default function DashboardPage() {
@@ -11,98 +16,172 @@ export default function DashboardPage() {
   );
 }
 
+type Company = {
+  id: number;
+  store_name: string;
+  spreadsheet_id: string;
+};
+
 function DashboardContent() {
   const { data: session, status } = useSession();
   const router = useRouter();
-  const [storeName, setStoreName] = useState("");
-  const [pin, setPin] = useState("");
-  const [statusText, setStatusText] = useState("");
-  const [sheetUrl, setSheetUrl] = useState("");
 
-  // 💡 未ログインだったら、自動的にログインページに飛ばす！
+  const [company, setCompany] = useState<Company | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const [storeName, setStoreName] = useState("");
+
+  const [statusText, setStatusText] = useState("");
+
+  // ログイン確認
   useEffect(() => {
     if (status === "unauthenticated") {
       router.replace("/admin/login");
     }
   }, [status, router]);
 
-  // 読み込み中はローディング表示
-  if (status === "loading") {
-    return <div style={{ padding: "40px", textAlign: "center" }}>読み込み中...</div>;
+  // 店舗情報取得
+  useEffect(() => {
+    if (status !== "authenticated") return;
+
+    loadCompany();
+  }, [status]);
+
+  async function loadCompany() {
+    setLoading(true);
+
+    try {
+      const res = await fetch("/api/company");
+      const data = await res.json();
+
+      if (data.success && data.hasCompany) {
+        setCompany(data.company);
+      } else {
+        setCompany(null);
+      }
+    } catch {
+      setStatusText("会社情報の取得に失敗しました");
+    }
+
+    setLoading(false);
   }
 
-  // 未ログイン状態のときは何も表示せず（リダイレクト中）、すぐ下へ
-  if (!session) {
-    return null;
-  }
-
-  const handleCreateSystem = async () => {
-    if (!storeName || !pin) {
-      setStatusText("店舗名とPINを入力してください！");
+  async function handleCreateCompany() {
+    if (!storeName.trim()) {
+      setStatusText("店舗名を入力してください");
       return;
     }
 
-    setStatusText("スプレッドシートを作成中...（数秒かかります）");
-    setSheetUrl("");
+    setStatusText("店舗を作成しています...");
 
     try {
       const res = await fetch("/api/setup", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ storeName, pin })
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          storeName,
+        }),
       });
 
       const data = await res.json();
 
-      if (data.success) {
-        setStatusText(`完了！ ${storeName} の勤怠システムを作成しました！`);
-        setSheetUrl(data.spreadsheetUrl);
-      } else {
-        setStatusText(`エラー: ${data.error}`);
+      if (!data.success) {
+        setStatusText(data.error);
+        return;
       }
-    } catch (error) {
-      setStatusText("通信エラーが発生しました");
+
+      setStatusText("店舗を作成しました");
+
+      // 再取得
+      loadCompany();
+
+    } catch {
+      setStatusText("通信エラー");
     }
-  };
+  }
+
+  if (status === "loading" || loading) {
+    return (
+      <div style={{ padding: 40 }}>
+        読み込み中...
+      </div>
+    );
+  }
+
+  if (!session) return null;
 
   return (
-    <div style={{ padding: "20px" }}>
-      <h1>管理者ダッシュボード</h1>
-      <p>ようこそ、{session.user?.name} さん</p>
-      
-      <div style={{ marginTop: "20px", border: "1px solid #ccc", padding: "20px" }}>
-        <h2>新規店舗セットアップ</h2>
-        <input 
-          type="text" 
-          placeholder="店舗名を入力" 
-          value={storeName} 
-          onChange={(e) => setStoreName(e.target.value)} 
-          style={{ display: "block", marginBottom: "10px", padding: "8px", width: "100%", maxWidth: "300px" }}
-        />
-        <input 
-          type="password" 
-          placeholder="管理者用PIN（4桁）" 
-          value={pin} 
-          onChange={(e) => setPin(e.target.value)} 
-          style={{ display: "block", marginBottom: "10px", padding: "8px", width: "100%", maxWidth: "300px" }}
-        />
-        <button onClick={handleCreateSystem} style={{ padding: "10px 20px", cursor: "pointer" }}>
-          システムを初期化する
-        </button>
-      </div>
+    <div style={{ padding: 30 }}>
 
-      <p style={{ marginTop: "20px", fontWeight: "bold" }}>{statusText}</p>
-      
-      {sheetUrl && (
-        <div style={{ marginTop: "10px", padding: "10px", backgroundColor: "#e6ffe6", border: "1px solid #00cc00" }}>
-          <p>👇 あなたのGoogleドライブに新しいファイルが作成されました！</p>
-          <a href={sheetUrl} target="_blank" rel="noopener noreferrer" style={{ color: "blue", textDecoration: "underline" }}>
-            作成されたスプレッドシートを開く
-          </a>
-        </div>
+      <h1>管理者ダッシュボード</h1>
+
+      <p>
+        ようこそ {session.user?.name}
+      </p>
+
+      <hr />
+
+      {/* 初回セットアップ */}
+
+      {!company && (
+        <>
+
+          <h2>初回セットアップ</h2>
+
+          <input
+            value={storeName}
+            onChange={(e)=>setStoreName(e.target.value)}
+            placeholder="店舗名"
+          />
+
+          <br />
+          <br />
+
+          <button
+            onClick={handleCreateCompany}
+          >
+            店舗を作成
+          </button>
+
+        </>
       )}
-      
-      <button onClick={() => signOut()} style={{ marginTop: "30px" }}>ログアウト</button>
+
+      {/* 通常画面 */}
+
+      {company && (
+        <>
+
+          <h2>{company.store_name}</h2>
+
+          <p>
+            店舗の作成は完了しています。
+          </p>
+
+          <button>
+            スプレッドシートを開く
+          </button>
+
+        </>
+      )}
+
+      <br />
+
+      <p>{statusText}</p>
+
+      <hr />
+
+      <button
+        onClick={() =>
+          signOut({
+            callbackUrl: "/admin/login",
+          })
+        }
+      >
+        ログアウト
+      </button>
+
     </div>
   );
 }
