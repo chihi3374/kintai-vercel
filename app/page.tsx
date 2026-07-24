@@ -1,78 +1,177 @@
 "use client";
 
-import { useState } from "react";
-import Link from "next/link";
+import { useEffect, useState } from "react";
 
-export default function Home() {
-  const [employeeName, setEmployeeName] = useState("");
-  const [statusMessage, setStatusMessage] = useState("");
+type Employee = {
+  id: number;
+  name: string;
+};
 
-  // ボタンが押された時の処理（今はダミーです）
-  const handlePunch = async (action: string) => {
-    if (!employeeName) {
-      setStatusMessage("⚠️ 名前を入力してください！");
-      return;
-    }
+type Step = "list" | "action" | "confirm" | "complete";
 
-    setStatusMessage(`${employeeName}さん、${action}を記録中...`);
+export default function HomePage() {
+  // 仮データ（あとでAPIに置き換える）
+  const [employees] = useState<Employee[]>([
+    { id: 1, name: "山田" },
+    { id: 2, name: "佐藤" },
+    { id: 3, name: "鈴木" },
+    { id: 4, name: "田中" },
+    { id: 5, name: "高橋" },
+    { id: 6, name: "伊藤" },
+  ]);
 
-    // ※次回、ここにスプレッドシートへ書き込むAPIを呼び出す処理を書きます！
-    setTimeout(() => {
-      setStatusMessage(`✅ ${employeeName}さんの「${action}」を記録しました！`);
-    }, 1000);
-  };
+  const [step, setStep] = useState<Step>("list");
+  const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
+  const [selectedAction, setSelectedAction] = useState<"clock_in" | "clock_out" | null>(null);
+
+  function selectEmployee(employee: Employee) {
+    setSelectedEmployee(employee);
+    setStep("action");
+  }
+
+  function selectAction(action: "clock_in" | "clock_out") {
+    setSelectedAction(action);
+    setStep("confirm");
+  }
+
+  function completeClock() {
+    // 後でAPI呼び出し
+    setStep("complete");
+  }
+
+  useEffect(() => {
+    if (step !== "complete") return;
+
+    const timer = setTimeout(() => {
+      setSelectedEmployee(null);
+      setSelectedAction(null);
+      setStep("list");
+    }, 2000);
+
+    return () => clearTimeout(timer);
+  }, [step]);
 
   return (
-    <div style={{ padding: "20px", maxWidth: "400px", margin: "0 auto", textAlign: "center", fontFamily: "sans-serif" }}>
-      <h1>🕒 勤怠システム</h1>
-      <p style={{ color: "#666", marginBottom: "30px" }}>今日も一日お疲れ様です！</p>
+    <main className="min-h-screen bg-gray-100 flex justify-center items-center p-4">
 
-      <div style={{ marginBottom: "20px" }}>
-        <input
-          type="text"
-          placeholder="あなたの名前を入力"
-          value={employeeName}
-          onChange={(e) => setEmployeeName(e.target.value)}
-          style={{ 
-            padding: "12px", 
-            width: "100%", 
-            fontSize: "16px", 
-            borderRadius: "8px", 
-            border: "1px solid #ccc",
-            boxSizing: "border-box"
-          }}
-        />
+      <div className="bg-white w-full max-w-xl rounded-2xl shadow-lg p-6">
+
+        <h1 className="text-3xl font-bold text-center mb-8">
+          勤怠打刻
+        </h1>
+
+        {/* 一覧 */}
+        {step === "list" && (
+          <>
+            <p className="text-center text-gray-600 mb-5">
+              従業員を選択してください
+            </p>
+
+            <div className="max-h-[500px] overflow-y-auto space-y-3">
+
+              {employees.map((employee) => (
+                <button
+                  key={employee.id}
+                  onClick={() => selectEmployee(employee)}
+                  className="w-full h-16 bg-white border rounded-xl text-2xl font-semibold hover:bg-gray-100 transition"
+                >
+                  {employee.name}
+                </button>
+              ))}
+
+            </div>
+          </>
+        )}
+
+        {/* 出勤・退勤 */}
+        {step === "action" && selectedEmployee && (
+          <div className="text-center">
+
+            <h2 className="text-4xl font-bold mb-10">
+              {selectedEmployee.name} さん
+            </h2>
+
+            <button
+              onClick={() => selectAction("clock_in")}
+              className="w-full h-20 bg-green-500 text-white rounded-xl text-3xl font-bold mb-5"
+            >
+              出勤
+            </button>
+
+            <button
+              onClick={() => selectAction("clock_out")}
+              className="w-full h-20 bg-red-500 text-white rounded-xl text-3xl font-bold"
+            >
+              退勤
+            </button>
+
+            <button
+              onClick={() => setStep("list")}
+              className="mt-6 text-gray-500"
+            >
+              ← 戻る
+            </button>
+
+          </div>
+        )}
+
+        {/* 確認 */}
+        {step === "confirm" && selectedEmployee && selectedAction && (
+          <div className="text-center">
+
+            <h2 className="text-3xl font-bold mb-6">
+              確認
+            </h2>
+
+            <p className="text-4xl font-bold mb-8">
+              {selectedEmployee.name} さん
+            </p>
+
+            <p className="text-2xl mb-10">
+              {selectedAction === "clock_in"
+                ? "出勤"
+                : "退勤"}
+              で打刻します。
+            </p>
+
+            <div className="flex gap-4">
+
+              <button
+                onClick={() => setStep("action")}
+                className="flex-1 h-16 rounded-xl bg-gray-300 text-xl"
+              >
+                いいえ
+              </button>
+
+              <button
+                onClick={completeClock}
+                className="flex-1 h-16 rounded-xl bg-blue-600 text-white text-xl"
+              >
+                はい
+              </button>
+
+            </div>
+
+          </div>
+        )}
+
+        {/* 完了 */}
+        {step === "complete" && (
+          <div className="text-center py-20">
+
+            <div className="text-7xl mb-6">
+              ✅
+            </div>
+
+            <p className="text-3xl font-bold">
+              打刻しました
+            </p>
+
+          </div>
+        )}
+
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
-        <button onClick={() => handlePunch("出勤")} style={buttonStyle("#4CAF50")}>出勤</button>
-        <button onClick={() => handlePunch("退勤")} style={buttonStyle("#F44336")}>退勤</button>
-        <button onClick={() => handlePunch("休憩開始")} style={buttonStyle("#FF9800")}>休憩開始</button>
-        <button onClick={() => handlePunch("休憩終了")} style={buttonStyle("#2196F3")}>休憩終了</button>
-      </div>
-
-      <p style={{ marginTop: "20px", fontWeight: "bold", minHeight: "24px", color: "#333" }}>
-        {statusMessage}
-      </p>
-      
-      {/* 管理者画面へのリンク */}
-      <div style={{ marginTop: "50px", fontSize: "14px" }}>
-        <Link href="/admin/dashboard" style={{ color: "#999", textDecoration: "underline" }}>
-          管理者設定はこちら
-        </Link>
-      </div>
-    </div>
+    </main>
   );
 }
-
-// ボタンのデザインを使い回すための設定
-const buttonStyle = (color: string) => ({
-  padding: "15px",
-  fontSize: "18px",
-  color: "white",
-  backgroundColor: color,
-  border: "none",
-  borderRadius: "8px",
-  cursor: "pointer",
-  fontWeight: "bold" as const,
-});
