@@ -89,6 +89,12 @@ export async function POST(req: Request) {
       auth,
     });
 
+    // ★追加: Drive API を初期化
+    const drive = google.drive({
+      version: "v3",
+      auth,
+    });
+
     // ===========================
     // Spreadsheet作成
     // ===========================
@@ -102,6 +108,18 @@ export async function POST(req: Request) {
 
     const spreadsheetId = sheet.data.spreadsheetId!;
     const spreadsheetUrl = sheet.data.spreadsheetUrl!;
+    
+    // ===========================
+    // ★追加: 管理者に権限を付与して見えるようにする
+    // ===========================
+    await drive.permissions.create({
+      fileId: spreadsheetId,
+      requestBody: {
+        role: "writer",          // 編集者として
+        type: "user",            // 特定のユーザーに
+        emailAddress: adminEmail, // ログインしている人のGoogleアカウントに共有
+      },
+    });
 
     // ===========================
     // シート追加
