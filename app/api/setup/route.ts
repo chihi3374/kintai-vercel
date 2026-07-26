@@ -59,7 +59,7 @@ export async function POST(req: Request) {
     const privateKey =
       process.env.GOOGLE_SERVICE_ACCOUNT_KEY?.replace(/\\n/g, "\n");
     console.log(process.env.GOOGLE_SERVICE_ACCOUNT_KEY?.substring(0, 40));
-
+    console.log(privateKey?.substring(0, 40));
     if (!clientEmail || !privateKey) {
       throw new Error("Google Service Account が設定されていません");
     }
