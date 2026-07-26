@@ -71,7 +71,10 @@ export async function POST(req: Request) {
         "https://www.googleapis.com/auth/drive",
       ],
     });
-
+    
+    await auth.authorize();
+    console.log("JWT OK");
+    
     const sheets = google.sheets({
       version: "v4",
       auth,
