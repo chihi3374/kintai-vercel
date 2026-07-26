@@ -58,8 +58,16 @@ export async function POST(req: Request) {
     const clientEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
     const privateKey =
       process.env.GOOGLE_SERVICE_ACCOUNT_KEY?.replace(/\\n/g, "\n");
-    console.log(process.env.GOOGLE_SERVICE_ACCOUNT_KEY?.substring(0, 40));
-    console.log(privateKey?.substring(0, 40));
+
+    console.log(
+      "ENV KEY:",
+      process.env.GOOGLE_SERVICE_ACCOUNT_KEY?.substring(0, 40)
+    );
+    console.log(
+      "PRIVATE KEY:",
+      privateKey?.substring(0, 40)
+    );
+
     if (!clientEmail || !privateKey) {
       throw new Error("Google Service Account が設定されていません");
     }
@@ -72,10 +80,10 @@ export async function POST(req: Request) {
         "https://www.googleapis.com/auth/drive",
       ],
     });
-    
+
     await auth.authorize();
     console.log("JWT OK");
-    
+
     const sheets = google.sheets({
       version: "v4",
       auth,
@@ -149,14 +157,14 @@ export async function POST(req: Request) {
       (
         store_name,
         admin_email,
-        spreadsheet_id
+        spreadsheet_id,
         spreadsheet_url
       )
       VALUES
       (
         ${storeName},
         ${adminEmail},
-        ${spreadsheetId}
+        ${spreadsheetId},
         ${spreadsheetUrl}
       )
     `;
@@ -165,11 +173,12 @@ export async function POST(req: Request) {
       success: true,
       spreadsheetUrl,
     });
+
   } catch (err: any) {
-    console.error(
-      JSON.stringify(err.response?.data, null, 2)
-    );
+    console.error("========== ERROR ==========");
+    console.error(JSON.stringify(err.response?.data, null, 2));
     console.error(err);
+
     return NextResponse.json(
       {
         success: false,
@@ -177,13 +186,5 @@ export async function POST(req: Request) {
       },
       { status: 500 }
     );
-  }
-  return NextResponse.json(
-    {
-      success: false,
-      error: "セットアップに失敗しました",
-    },
-    { status: 500 }
-  );
   }
 }
