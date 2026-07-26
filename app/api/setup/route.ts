@@ -165,9 +165,11 @@ export async function POST(req: Request) {
       success: true,
       spreadsheetUrl,
     });
-  } catch (err) {
+  } catch (err: any) {
+    console.error(
+      JSON.stringify(err.response?.data, null, 2)
+    );
     console.error(err);
-
     return NextResponse.json(
       {
         success: false,
@@ -175,5 +177,13 @@ export async function POST(req: Request) {
       },
       { status: 500 }
     );
+  }
+  return NextResponse.json(
+    {
+      success: false,
+      error: "セットアップに失敗しました",
+    },
+    { status: 500 }
+  );
   }
 }
