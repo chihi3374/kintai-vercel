@@ -55,43 +55,21 @@ export async function POST(req: Request) {
     // ===========================
     // Google認証
     // ===========================
-    const clientEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
-    const privateKey =
-      process.env.GOOGLE_SERVICE_ACCOUNT_KEY?.replace(/\\n/g, "\n");
-
-    console.log(
-      "ENV KEY:",
-      process.env.GOOGLE_SERVICE_ACCOUNT_KEY?.substring(0, 40)
-    );
-    console.log(
-      "PRIVATE KEY:",
-      privateKey?.substring(0, 40)
-    );
-
-    if (!clientEmail || !privateKey) {
-      throw new Error("Google Service Account が設定されていません");
+    const accessToken = (session as any).accessToken;
+    if (!accessToken) {
+      throw new Error("Googleアクセストークンが取得できません");
     }
-
-    const auth = new google.auth.JWT({
-      email: clientEmail,
-      key: privateKey,
-      scopes: [
-        "https://www.googleapis.com/auth/spreadsheets",
-        "https://www.googleapis.com/auth/drive",
-      ],
+    const auth = new google.auth.OAuth2();
+    auth.setCredentials({
+      access_token: accessToken,
     });
-
-    await auth.authorize();
-    console.log("JWT OK");
-
-    const sheets = google.sheets({
-      version: "v4",
-      auth,
-    });
-
-    // ★追加: Drive API を初期化
+// ★追加: Drive API を初期化
     const drive = google.drive({
       version: "v3",
+      auth,
+    });
+    const sheets = google.sheets({
+      version: "v4",
       auth,
     });
 
@@ -117,7 +95,7 @@ export async function POST(req: Request) {
       requestBody: {
         role: "writer",          // 編集者として
         type: "user",            // 特定のユーザーに
-        emailAddress: adminEmail, // ログインしている人のGoogleアカウントに共有
+        emailAddress: env.GOOGLE_SERVICE_ACCOUNT_EMAIL!, // サービスアカウントに共有
       },
     });
 
