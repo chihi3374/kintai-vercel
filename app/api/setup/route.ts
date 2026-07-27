@@ -95,7 +95,7 @@ export async function POST(req: Request) {
       requestBody: {
         role: "writer",          // 編集者として
         type: "user",            // 特定のユーザーに
-        emailAddress: env.GOOGLE_SERVICE_ACCOUNT_EMAIL!, // サービスアカウントに共有
+        emailAddress: env.GOOGLE_SERVICE_ACCOUNT_EMAIL, // サービスアカウントに共有
       },
     });
 
