@@ -3,6 +3,7 @@ import { google } from "googleapis";
 import { getServerSession } from "next-auth";
 import { authOptions } from "../auth/[...nextauth]/route";
 import { sql } from "@/lib/db";
+import crypto from "crypto";
 
 export async function POST(req: Request) {
   try {
@@ -86,6 +87,7 @@ export async function POST(req: Request) {
 
     const spreadsheetId = sheet.data.spreadsheetId!;
     const spreadsheetUrl = sheet.data.spreadsheetUrl!;
+    const storeToken = crypto.randomUUID();
     
     // ===========================
     // ★追加: 管理者に権限を付与して見えるようにする
@@ -154,20 +156,23 @@ export async function POST(req: Request) {
         store_name,
         admin_email,
         spreadsheet_id,
-        spreadsheet_url
+        spreadsheet_url,
+        store_token
       )
       VALUES
       (
         ${storeName},
         ${adminEmail},
         ${spreadsheetId},
-        ${spreadsheetUrl}
+        ${spreadsheetUrl},
+        ${storeToken}
       )
     `;
 
     return NextResponse.json({
       success: true,
       spreadsheetUrl,
+      storeToken,
     });
 
   } catch (err: any) {
