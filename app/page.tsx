@@ -10,9 +10,44 @@ import CompleteScreen from "./components/CompleteScreen";
 type Step = "list" | "action" | "confirm" | "complete";
 
 export default function HomePage() {
+
   const [step, setStep] = useState<Step>("list");
 
-  // 仮データ（あとでAPIに置き換える）
+
+  // ===========================
+  // storeToken取得
+  // ===========================
+  const [storeToken, setStoreToken] = useState("");
+
+
+
+  useEffect(() => {
+
+    const token = localStorage.getItem(
+      "storeToken"
+    );
+
+
+    if (!token) {
+
+      alert(
+        "店舗設定がありません"
+      );
+
+      return;
+
+    }
+
+
+    setStoreToken(token);
+
+
+  }, []);
+
+
+
+
+  // 仮データ（あとでAPI化）
   const [employees, setEmployees] = useState<Employee[]>([
     { id: 1, name: "山田" },
     { id: 2, name: "佐藤" },
@@ -21,97 +56,268 @@ export default function HomePage() {
     { id: 5, name: "高橋" },
   ]);
 
-  const [selectedEmployee, setSelectedEmployee] =
-    useState<Employee | null>(null);
 
-  const [selectedAction, setSelectedAction] =
-    useState<"clock_in" | "clock_out" | null>(null);
+
+  const [selectedEmployee, setSelectedEmployee]
+    = useState<Employee | null>(null);
+
+
+
+  const [selectedAction, setSelectedAction]
+    = useState<"clock_in" | "clock_out" | null>(null);
+
+
+
 
   // 打刻完了後2秒で一覧へ戻る
   useEffect(() => {
+
     if (step !== "complete") return;
 
+
     const timer = setTimeout(() => {
+
       setSelectedEmployee(null);
       setSelectedAction(null);
       setStep("list");
+
     }, 2000);
 
+
     return () => clearTimeout(timer);
+
+
   }, [step]);
 
-  // 従業員選択
+
+
+
+
   function handleSelectEmployee(employee: Employee) {
+
     setSelectedEmployee(employee);
+
     setStep("action");
+
   }
 
-  // 出勤
+
+
+
+
   function handleClockIn() {
+
     setSelectedAction("clock_in");
+
     setStep("confirm");
+
   }
 
-  // 退勤
+
+
+
+
   function handleClockOut() {
+
     setSelectedAction("clock_out");
+
     setStep("confirm");
+
   }
 
-  // 打刻実行
+
+
+
+
+  // ===========================
+  // 打刻API送信
+  // ===========================
   async function handleConfirm() {
-    // ★あとでAPIを書く
-    // await fetch("/api/clock-in")
 
-    setStep("complete");
+
+    if (
+      !storeToken ||
+      !selectedEmployee ||
+      !selectedAction
+    ) {
+
+      alert(
+        "店舗情報がありません"
+      );
+
+      return;
+
+    }
+
+
+
+    const type =
+      selectedAction === "clock_in"
+        ? "出勤"
+        : "退勤";
+
+
+
+
+    try {
+
+
+      const res = await fetch(
+        "/api/clock-in",
+        {
+
+          method: "POST",
+
+          headers: {
+
+            "Content-Type": "application/json",
+
+          },
+
+
+          body: JSON.stringify({
+
+            storeToken,
+
+            employeeName:
+              selectedEmployee.name,
+
+            type,
+
+          }),
+
+        }
+
+      );
+
+
+
+      const data = await res.json();
+
+
+
+      if (!data.success) {
+
+        alert(data.error);
+
+        return;
+
+      }
+
+
+
+      setStep("complete");
+
+
+
+    } catch (error) {
+
+
+      console.error(error);
+
+
+      alert(
+        "通信エラーが発生しました"
+      );
+
+
+    }
+
+
   }
+
+
+
+
 
   return (
+
     <main className="min-h-screen bg-gray-100 flex justify-center items-center p-4">
+
 
       <div className="w-full max-w-xl rounded-2xl bg-white shadow-lg p-6">
 
+
         {step === "list" && (
+
           <EmployeeList
+
             employees={employees}
+
             onSelect={handleSelectEmployee}
+
           />
+
         )}
 
+
+
         {step === "action" && selectedEmployee && (
+
           <ActionSelect
+
             employee={selectedEmployee}
+
             onClockIn={handleClockIn}
+
             onClockOut={handleClockOut}
+
             onBack={() => {
+
               setSelectedEmployee(null);
+
               setStep("list");
+
             }}
+
           />
+
         )}
+
+
 
         {step === "confirm" &&
           selectedEmployee &&
           selectedAction && (
+
             <ConfirmDialog
+
               employee={selectedEmployee}
+
               action={selectedAction}
-              onCancel={() => setStep("action")}
+
+              onCancel={() =>
+                setStep("action")
+              }
+
               onConfirm={handleConfirm}
+
             />
-          )}
+
+        )}
+
+
 
         {step === "complete" &&
           selectedEmployee &&
           selectedAction && (
+
             <CompleteScreen
+
               employee={selectedEmployee}
+
               action={selectedAction}
+
             />
-          )}
+
+        )}
+
 
       </div>
 
+
     </main>
+
   );
+
 }
