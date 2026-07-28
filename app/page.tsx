@@ -109,8 +109,45 @@ export default function HomePage() {
   // 打刻実行
   // ===========================
   async function handleConfirm() {
-    // 次でAPI接続
-    setStep("complete");
+    const storeToken = localStorage.getItem("storeToken");
+
+    if (!storeToken) {
+      alert("店舗情報が見つかりません");
+      return;
+    }
+
+    if (!selectedEmployee || !selectedAction) {
+      alert("従業員または打刻種別が選択されていません");
+      return;
+    }
+
+    try {
+      const res = await fetch("/api/clock-in", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          storeToken,
+          employeeId: selectedEmployee.id,
+          employeeName: selectedEmployee.name,
+          type: selectedAction,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!data.success) {
+        alert(data.error);
+        return;
+      }
+
+      // 打刻成功
+      setStep("complete");
+    } catch (err) {
+      console.error(err);
+      alert("通信エラーが発生しました");
+    }
   }
 
   // ===========================
@@ -137,9 +174,7 @@ export default function HomePage() {
 
   return (
     <main className="min-h-screen bg-gray-100 flex justify-center items-center p-4">
-
       <div className="w-full max-w-xl rounded-2xl bg-white shadow-lg p-6">
-
         {step === "list" && (
           <EmployeeList
             employees={employees}
@@ -178,9 +213,7 @@ export default function HomePage() {
               action={selectedAction}
             />
           )}
-
       </div>
-
     </main>
   );
 }
