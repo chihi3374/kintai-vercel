@@ -50,6 +50,11 @@ function DashboardContent() {
   async function loadCompany() {
     setLoading(true);
 
+
+    const res = await fetch("/api/company");
+    const data = await res.json();
+    console.log(data);
+
     try {
       const res = await fetch("/api/company");
       const data = await res.json();
