@@ -48,6 +48,7 @@ function DashboardContent() {
   }, [status]);
 
   async function loadCompany() {
+    console.log("loadCompany開始");
     setLoading(true);
 
 
