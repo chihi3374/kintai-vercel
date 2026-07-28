@@ -18,6 +18,7 @@ export const authOptions: NextAuthOptions = {
       }
     })
   ],
+  useSecureCookies: true,
   callbacks: {
     // ログイン成功時にGoogleから返ってきた「アクセスキー」をプログラム内で使えるように保持します
     async jwt({ token, account }) {
