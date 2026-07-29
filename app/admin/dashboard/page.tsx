@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { SessionProvider, useSession, signOut } from "next-auth/react";
+import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 
 type Company = {
@@ -12,11 +12,7 @@ type Company = {
 };
 
 export default function DashboardPage() {
-  return (
-    <SessionProvider>
-      <DashboardContent />
-    </SessionProvider>
-  );
+  return  <DashboardContent />;
 }
 
 function DashboardContent() {
