@@ -11,7 +11,7 @@ function AdminLoginContent() {
 
   const handleGoogleLogin = () => {
     signIn("google", {
-      callbackUrl: "/admin/dashboard",
+      callbackUrl: "https://kintai-vercel.vercel.app/admin/dashboard",
     });
   };
 
