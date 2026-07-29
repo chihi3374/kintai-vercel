@@ -9,12 +9,17 @@ export default function AdminLogin() {
 function AdminLoginContent() {
   const { status } = useSession();
 
-  const handleGoogleLogin = () => {
-    signIn("google", {
+  const handleGoogleLogin = async () => {
+    const result = await signIn("google", {
       callbackUrl: "/admin/dashboard",
-    redirect: false,
+      redirect: false,
     });
+
     console.log("signIn結果:", result);
+
+    if (result?.url) {
+      window.location.href = result.url;
+    }
   };
 
   return (
