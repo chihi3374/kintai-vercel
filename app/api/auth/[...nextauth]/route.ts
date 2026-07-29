@@ -16,7 +16,6 @@ export const authOptions: NextAuthOptions = {
       clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
       authorization: {
         params: {
-          // ★ここが超重要！ログイン時にスプレッドシート自動作成のための権限を要求します
           scope:
             "openid email profile https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/spreadsheets",
           prompt: "select_account",
@@ -27,10 +26,7 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
 
-  useSecureCookies: true,
-
   callbacks: {
-    // ログイン成功時にGoogleから返ってきた「アクセスキー」をプログラム内で使えるように保持します
     async jwt({ token, account }) {
       if (account) {
         token.accessToken = account.access_token;
@@ -39,7 +35,6 @@ export const authOptions: NextAuthOptions = {
     },
 
     async session({ session, token }) {
-      // セッション情報にトークンをねじ込みます
       (session as any).accessToken = token.accessToken;
       return session;
     },
