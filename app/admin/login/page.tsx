@@ -1,13 +1,9 @@
 "use client";
 
-import { signIn, SessionProvider, useSession } from "next-auth/react";
+import { signIn, useSession } from "next-auth/react";
 
 export default function AdminLogin() {
-  return (
-    <SessionProvider>
-      <AdminLoginContent />
-    </SessionProvider>
-  );
+  return <AdminLoginContent />;
 }
 
 function AdminLoginContent() {
