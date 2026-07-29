@@ -13,10 +13,9 @@ function AdminLoginContent() {
     signIn("google", {
       callbackUrl: "/admin/dashboard",
     redirect: false,
-  });
-
-  console.log("signIn結果:", result);
-};
+    });
+    console.log("signIn結果:", result);
+  };
 
   return (
     <main className="min-h-screen bg-gray-100 flex flex-col items-center justify-center p-4">
