@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import Link from "next/link"; // 追加：Next.jsのリンクコンポーネント
 
 type Company = {
   storeName: string;
@@ -47,14 +48,10 @@ function DashboardContent() {
     console.log("loadCompany開始");
     setLoading(true);
 
-
-    const res = await fetch("/api/company");
-    const data = await res.json();
-    console.log(data);
-
     try {
       const res = await fetch("/api/company");
       const data = await res.json();
+      console.log(data); // 最初のfetchのログを残しつつ統合
 
       if (data.success && data.company) {
         setCompany(data.company);
@@ -180,31 +177,43 @@ function DashboardContent() {
             店舗のセットアップは完了しています。
           </p>
 
-          <a
-            href={company.spreadsheetUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <button
-              style={{
-                padding: "10px 20px",
-              }}
+          <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+            <a
+              href={company.spreadsheetUrl}
+              target="_blank"
+              rel="noopener noreferrer"
             >
-              スプレッドシートを開く
-            </button>
-          </a>
+              <button
+                style={{
+                  padding: "10px 20px",
+                }}
+              >
+                スプレッドシートを開く
+              </button>
+            </a>
 
-          <br />
-          <br />
+            {/* 追加: 打刻画面へのリンク */}
+            <Link href="/">
+              <button
+                style={{
+                  padding: "10px 20px",
+                }}
+              >
+                打刻画面を開く
+              </button>
+            </Link>
 
-          <button
-            disabled
-            style={{
-              padding: "10px 20px",
-            }}
-          >
-            従業員管理（準備中）
-          </button>
+            {/* 変更: 従業員管理ページへのリンク（disabledを解除してLinkでラップ） */}
+            <Link href="/admin/employees">
+              <button
+                style={{
+                  padding: "10px 20px",
+                }}
+              >
+                従業員管理
+              </button>
+            </Link>
+          </div>
         </>
       )}
 
