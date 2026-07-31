@@ -84,17 +84,15 @@ export async function GET(req: Request) {
       await getSheets(spreadsheetId);
 
 
-
     const response =
       await sheets.spreadsheets.values.get({
         spreadsheetId,
-        range:"従業員!A2:C",
+        range:"従業員!A2:D",
       });
 
 
     const rows =
       response.data.values ?? [];
-
 
 
     const employees =
@@ -103,7 +101,8 @@ export async function GET(req: Request) {
       .map(row => ({
         id: row[0],
         name: row[1],
-        status: row[2]
+        status: row[2],
+        hourly: Number(row[3] ?? 0),
       }));
 
 
@@ -143,11 +142,12 @@ export async function POST(req:Request){
 
     const {
       storeToken,
-      name
+      name,
+      hourly
     } = body;
 
 
-    if(!storeToken || !name){
+    if(!storeToken || !name || !hourly){
 
       return NextResponse.json(
         {
@@ -181,7 +181,7 @@ export async function POST(req:Request){
 
       spreadsheetId,
 
-      range:"従業員!A:C",
+      range:"従業員!A:D",
 
       valueInputOption:"USER_ENTERED",
 
@@ -190,7 +190,8 @@ export async function POST(req:Request){
           [
             id,
             name,
-            "在籍"
+            "在籍",
+            Number(hourly)
           ]
         ]
       }
@@ -237,7 +238,8 @@ export async function PUT(req:Request){
       storeToken,
       id,
       name,
-      status
+      status,
+      hourly
     } = await req.json();
 
 
@@ -257,7 +259,7 @@ export async function PUT(req:Request){
 
         spreadsheetId,
 
-        range:"従業員!A:C"
+        range:"従業員!A:D"
 
       });
 
@@ -287,7 +289,7 @@ export async function PUT(req:Request){
 
       spreadsheetId,
 
-      range:`従業員!A${index+1}:C${index+1}`,
+      range:`従業員!A${index+1}:D${index+1}`,
 
       valueInputOption:"USER_ENTERED",
 
@@ -296,7 +298,8 @@ export async function PUT(req:Request){
           [
             id,
             name ?? rows[index][1],
-            status ?? rows[index][2]
+            status ?? rows[index][2],
+            hourly ?? rows[index][3] ?? 0
           ]
         ]
       }
@@ -359,7 +362,7 @@ export async function DELETE(req:Request){
 
         spreadsheetId,
 
-        range:"従業員!A:C"
+        range:"従業員!A:D"
 
       });
 
