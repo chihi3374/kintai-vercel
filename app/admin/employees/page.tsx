@@ -12,99 +12,191 @@ type Employee = {
 export default function EmployeesPage() {
 
   const [employees, setEmployees] = useState<Employee[]>([]);
+
+  const [storeToken, setStoreToken] = useState("");
+
   const [name, setName] = useState("");
   const [hourly, setHourly] = useState("");
 
   const [loading, setLoading] = useState(false);
 
 
-  // 仮
-  // 後でsessionから取得
-  const storeToken =
-    localStorage.getItem("storeToken");
+
+  // ===========================
+  // 初期処理
+  // ===========================
+  useEffect(() => {
+
+    const token =
+      window.localStorage.getItem("storeToken");
 
 
-  async function loadEmployees(){
+    if (!token) {
 
-    if(!storeToken) return;
+      console.error("storeTokenなし");
+      return;
 
-
-    const res = await fetch(
-      `/api/employees?storeToken=${storeToken}`
-    );
+    }
 
 
-    const data = await res.json();
+    setStoreToken(token);
+
+    loadEmployees(token);
 
 
-    if(data.success){
-      setEmployees(data.employees);
+  }, []);
+
+
+
+
+  // ===========================
+  // 従業員取得
+  // ===========================
+  async function loadEmployees(token:string) {
+
+    try {
+
+      const res =
+        await fetch(
+          `/api/employees?storeToken=${token}`
+        );
+
+
+      const data =
+        await res.json();
+
+
+      if(data.success){
+
+        setEmployees(data.employees);
+
+      }
+
+
+    } catch(error){
+
+      console.error(error);
+
     }
 
   }
 
 
 
-  useEffect(()=>{
 
-    loadEmployees();
-
-  },[]);
-
-
-
+  // ===========================
+  // 追加
+  // ===========================
   async function addEmployee(){
 
-    if(!name || !hourly){
-      alert("入力してください");
+    if(!storeToken){
+
+      alert("店舗情報がありません");
       return;
+
+    }
+
+
+    if(!name || !hourly){
+
+      alert("名前と時給を入力してください");
+      return;
+
     }
 
 
     setLoading(true);
 
 
-    await fetch("/api/employees",{
-
-      method:"POST",
-
-      headers:{
-        "Content-Type":"application/json"
-      },
-
-      body:JSON.stringify({
-
-        storeToken,
-
-        name,
-
-        hourly:Number(hourly)
-
-      })
-
-    });
+    try{
 
 
-    setName("");
-    setHourly("");
+      const res =
+        await fetch("/api/employees",{
 
-    await loadEmployees();
+          method:"POST",
 
-    setLoading(false);
+          headers:{
+
+            "Content-Type":"application/json"
+
+          },
+
+
+          body:JSON.stringify({
+
+            storeToken,
+
+            name,
+
+            hourly:Number(hourly)
+
+          })
+
+        });
+
+
+
+      const data =
+        await res.json();
+
+
+
+      if(!data.success){
+
+        alert(data.error);
+        return;
+
+      }
+
+
+
+      setName("");
+      setHourly("");
+
+      loadEmployees(storeToken);
+
+
+
+    }catch(error){
+
+      console.error(error);
+
+      alert("追加失敗");
+
+
+    }finally{
+
+      setLoading(false);
+
+    }
 
   }
 
 
 
+
+
+  // ===========================
+  // 削除
+  // ===========================
   async function deleteEmployee(id:string){
+
+
+    if(!storeToken) return;
+
+
 
     await fetch("/api/employees",{
 
       method:"DELETE",
 
       headers:{
+
         "Content-Type":"application/json"
+
       },
+
 
       body:JSON.stringify({
 
@@ -117,16 +209,19 @@ export default function EmployeesPage() {
     });
 
 
-    loadEmployees();
+
+    loadEmployees(storeToken);
+
 
   }
+
+
 
 
 
   return (
 
     <main className="min-h-screen bg-gray-100 p-8">
-
 
       <div className="max-w-xl mx-auto bg-white rounded-xl shadow p-6">
 
@@ -137,33 +232,48 @@ export default function EmployeesPage() {
 
 
 
-        <div className="space-y-3 mb-8">
+        <div className="space-y-3">
 
 
           <input
+
             className="border p-2 w-full"
+
             placeholder="名前"
+
             value={name}
+
             onChange={
               e=>setName(e.target.value)
             }
+
           />
+
 
 
           <input
+
             className="border p-2 w-full"
+
             placeholder="時給"
+
             type="number"
+
             value={hourly}
+
             onChange={
               e=>setHourly(e.target.value)
             }
+
           />
+
 
 
           <button
 
             onClick={addEmployee}
+
+            disabled={loading}
 
             className="bg-blue-500 text-white px-4 py-2 rounded"
 
@@ -179,41 +289,63 @@ export default function EmployeesPage() {
 
 
 
+        <hr className="my-6"/>
+
+
+
         <h2 className="font-bold mb-3">
           従業員一覧
         </h2>
 
 
 
-        {employees.map(emp=>(
+        {employees.map((employee)=>(
+
 
           <div
-            key={emp.id}
-            className="border p-3 mb-2 flex justify-between"
+
+            key={employee.id}
+
+            className="border rounded p-3 mb-2 flex justify-between"
+
           >
+
 
             <div>
 
               <div>
-                {emp.name}
+                {employee.name}
               </div>
 
-              <div>
-                {emp.hourly}円
+
+              <div className="text-sm text-gray-500">
+
+                時給 {employee.hourly}円
+
               </div>
+
 
             </div>
 
 
+
             <button
-              onClick={()=>deleteEmployee(emp.id)}
+
+              onClick={
+                ()=>deleteEmployee(employee.id)
+              }
+
               className="text-red-500"
+
             >
+
               削除
+
             </button>
 
 
           </div>
+
 
         ))}
 
