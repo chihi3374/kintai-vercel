@@ -213,6 +213,17 @@ function DashboardContent() {
                 従業員管理
               </button>
             </Link>
+
+            {/* ★追加: 給与計算ページへのリンク */}
+            <Link href="/admin/salary">
+              <button
+                style={{
+                  padding: "10px 20px",
+                }}
+              >
+                給与計算
+              </button>
+            </Link>
           </div>
         </>
       )}
