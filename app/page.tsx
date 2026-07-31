@@ -1,232 +1,249 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link"; // ← 【追加】Linkコンポーネントをインポート
+import { useSession, signOut } from "next-auth/react";
+import { useRouter } from "next/navigation";
+import Link from "next/link"; // 追加：Next.jsのリンクコンポーネント
 
-import EmployeeList, { Employee } from "./components/EmployeeList";
-import ActionSelect from "./components/ActionSelect";
-import ConfirmDialog from "./components/ConfirmDialog";
-import CompleteScreen from "./components/CompleteScreen";
+type Company = {
+  storeName: string;
+  spreadsheetId: string;
+  spreadsheetUrl: string;
+  storeToken: string;
+};
 
-type Step = "list" | "action" | "confirm" | "complete";
+export default function DashboardPage() {
+  return  <DashboardContent />;
+}
 
-export default function HomePage() {
-  const [step, setStep] = useState<Step>("list");
+function DashboardContent() {
+  const { data: session, status } = useSession();
+  const router = useRouter();
 
-  // APIから取得する従業員一覧
-  const [employees, setEmployees] = useState<Employee[]>([]);
-
-  // 読み込み中
   const [loading, setLoading] = useState(true);
+  const [company, setCompany] = useState<Company | null>(null);
 
-  // エラーメッセージ
-  const [error, setError] = useState("");
-
-  const [selectedEmployee, setSelectedEmployee] =
-    useState<Employee | null>(null);
-
-  const [selectedAction, setSelectedAction] =
-    useState<"clock_in" | "clock_out" | null>(null);
+  const [storeName, setStoreName] = useState("");
+  const [statusText, setStatusText] = useState("");
 
   // ===========================
-  // 初回読み込み
+  // ログイン確認
   // ===========================
   useEffect(() => {
-    loadEmployees();
-  }, []);
+    if (status === "unauthenticated") {
+      router.replace("/admin/login");
+    }
+  }, [status, router]);
 
-  async function loadEmployees() {
+  // ===========================
+  // 店舗取得
+  // ===========================
+  useEffect(() => {
+    if (status === "authenticated") {
+      loadCompany();
+    }
+  }, [status]);
+
+  async function loadCompany() {
+    console.log("loadCompany開始");
+    setLoading(true);
+
     try {
-      setLoading(true);
-
-      // localStorageから取得
-      const storeToken = localStorage.getItem("storeToken");
-
-      if (!storeToken) {
-        setError("店舗情報が見つかりません");
-        return;
-      }
-
-      const res = await fetch(
-        `/api/employees?storeToken=${storeToken}`
-      );
-
+      const res = await fetch("/api/company");
       const data = await res.json();
+      console.log(data); // 最初のfetchのログを残しつつ統合
 
-      if (!data.success) {
-        setError(data.error);
-        return;
+      if (data.success && data.company) {
+        setCompany(data.company);
+
+        // ===========================
+        // storeToken保存
+        // ===========================
+        localStorage.setItem(
+          "storeToken",
+          data.company.storeToken
+        );
+
+        console.log("storeToken保存完了");
+      } else {
+        setCompany(null);
       }
-
-      setEmployees(data.employees);
-    } catch (err) {
-      console.error(err);
-      setError("従業員一覧の取得に失敗しました");
-    } finally {
-      setLoading(false);
+    } catch {
+      setStatusText("会社情報の取得に失敗しました");
     }
+
+    setLoading(false);
   }
 
-  // ===========================
-  // 打刻完了後2秒で一覧へ戻る
-  // ===========================
-  useEffect(() => {
-    if (step !== "complete") return;
-
-    const timer = setTimeout(() => {
-      setSelectedEmployee(null);
-      setSelectedAction(null);
-      setStep("list");
-    }, 2000);
-
-    return () => clearTimeout(timer);
-  }, [step]);
-
-  // ===========================
-  // 従業員選択
-  // ===========================
-  function handleSelectEmployee(employee: Employee) {
-    setSelectedEmployee(employee);
-    setStep("action");
-  }
-
-  // ===========================
-  // 出勤
-  // ===========================
-  function handleClockIn() {
-    setSelectedAction("clock_in");
-    setStep("confirm");
-  }
-
-  // ===========================
-  // 退勤
-  // ===========================
-  function handleClockOut() {
-    setSelectedAction("clock_out");
-    setStep("confirm");
-  }
-
-  // ===========================
-  // 打刻実行
-  // ===========================
-  async function handleConfirm() {
-    const storeToken = localStorage.getItem("storeToken");
-
-    if (!storeToken) {
-      alert("店舗情報が見つかりません");
+  async function createCompany() {
+    if (!storeName.trim()) {
+      setStatusText("店舗名を入力してください");
       return;
     }
 
-    if (!selectedEmployee || !selectedAction) {
-      alert("従業員または打刻種別が選択されていません");
-      return;
-    }
+    setStatusText("店舗を作成しています...");
 
     try {
-      const res = await fetch("/api/clock-in", {
+      const res = await fetch("/api/setup", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          storeToken,
-          employeeId: selectedEmployee.id,
-          employeeName: selectedEmployee.name,
-          type: selectedAction,
+          storeName,
         }),
       });
 
       const data = await res.json();
 
       if (!data.success) {
-        alert(data.error);
+        setStatusText(data.error);
         return;
       }
 
-      // 打刻成功
-      setStep("complete");
-    } catch (err) {
-      console.error(err);
-      alert("通信エラーが発生しました");
+      setStatusText("店舗を作成しました");
+
+      // 作成後、DBからtoken取得
+      await loadCompany();
+
+    } catch {
+      setStatusText("通信エラー");
     }
   }
 
-  // ===========================
-  // 読み込み中
-  // ===========================
-  if (loading) {
+  if (status === "loading" || loading) {
     return (
-      <main className="min-h-screen flex items-center justify-center">
+      <div style={{ padding: 40 }}>
         読み込み中...
-      </main>
+      </div>
     );
   }
 
-  // ===========================
-  // エラー
-  // ===========================
-  if (error) {
-    return (
-      <main className="min-h-screen flex flex-col items-center justify-center gap-6 bg-gray-100">
-        <div className="text-center bg-white p-8 rounded-2xl shadow-lg w-full max-w-sm">
-          <p className="text-red-500 font-bold mb-4">{error}</p>
-          
-          {/* 【追加】店舗情報がない場合のみログインボタンを表示 */}
-          {error === "店舗情報が見つかりません" && (
-            <Link
-              href="/admin/login"
-              className="inline-block w-full py-3 px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
-            >
-              管理者ログイン画面へ
-            </Link>
-          )}
-        </div>
-      </main>
-    );
-  }
+  if (!session) return null;
 
   return (
-    <main className="min-h-screen bg-gray-100 flex justify-center items-center p-4">
-      <div className="w-full max-w-xl rounded-2xl bg-white shadow-lg p-6">
-        {step === "list" && (
-          <EmployeeList
-            employees={employees}
-            onSelect={handleSelectEmployee}
-          />
-        )}
+    <div
+      style={{
+        maxWidth: 700,
+        margin: "40px auto",
+        padding: 20,
+      }}
+    >
+      <h1>管理者ダッシュボード</h1>
 
-        {step === "action" && selectedEmployee && (
-          <ActionSelect
-            employee={selectedEmployee}
-            onClockIn={handleClockIn}
-            onClockOut={handleClockOut}
-            onBack={() => {
-              setSelectedEmployee(null);
-              setStep("list");
+      <p>
+        ようこそ {session.user?.name} さん
+      </p>
+
+      <hr />
+
+      {!company ? (
+        <>
+          <h2>初回セットアップ</h2>
+
+          <p>
+            最初に店舗を作成してください。
+          </p>
+
+          <input
+            value={storeName}
+            onChange={(e) => setStoreName(e.target.value)}
+            placeholder="店舗名"
+            style={{
+              width: 300,
+              padding: 10,
             }}
           />
-        )}
 
-        {step === "confirm" &&
-          selectedEmployee &&
-          selectedAction && (
-            <ConfirmDialog
-              employee={selectedEmployee}
-              action={selectedAction}
-              onCancel={() => setStep("action")}
-              onConfirm={handleConfirm}
-            />
-          )}
+          <br />
+          <br />
 
-        {step === "complete" &&
-          selectedEmployee &&
-          selectedAction && (
-            <CompleteScreen
-              employee={selectedEmployee}
-              action={selectedAction}
-            />
-          )}
-      </div>
-    </main>
+          <button
+            onClick={createCompany}
+            style={{
+              padding: "10px 20px",
+            }}
+          >
+            店舗を作成
+          </button>
+        </>
+      ) : (
+        <>
+          <h2>
+            {company.storeName}
+          </h2>
+
+          <p>
+            店舗のセットアップは完了しています。
+          </p>
+
+          <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+            <a
+              href={company.spreadsheetUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <button
+                style={{
+                  padding: "10px 20px",
+                }}
+              >
+                スプレッドシートを開く
+              </button>
+            </a>
+
+            {/* 追加: 打刻画面へのリンク */}
+            <Link href="/">
+              <button
+                style={{
+                  padding: "10px 20px",
+                }}
+              >
+                打刻画面を開く
+              </button>
+            </Link>
+
+            {/* 変更: 従業員管理ページへのリンク（disabledを解除してLinkでラップ） */}
+            <Link href="/admin/employees">
+              <button
+                style={{
+                  padding: "10px 20px",
+                }}
+              >
+                従業員管理
+              </button>
+            </Link>
+
+            {/* ★追加: 給与計算ページへのリンク */}
+            <Link href="/admin/salary">
+              <button
+                style={{
+                  padding: "10px 20px",
+                }}
+              >
+                給与計算
+              </button>
+            </Link>
+          </div>
+        </>
+      )}
+
+      <br />
+      <br />
+
+      <p>{statusText}</p>
+
+      <hr />
+
+      <button
+        onClick={() =>
+          signOut({
+            callbackUrl: "/admin/login",
+          })
+        }
+      >
+        ログアウト
+      </button>
+    </div>
   );
 }
