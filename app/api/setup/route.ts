@@ -131,10 +131,10 @@ export async function POST(req: Request) {
     // ===========================
     await sheets.spreadsheets.values.update({
       spreadsheetId,
-      range: "従業員!A1:C1",
+      range: "従業員!A1:D1",
       valueInputOption: "RAW",
       requestBody: {
-        values: [["ID", "氏名", "在籍"]],
+        values: [["ID", "氏名", "在籍","時給"]],
       },
     });
 
