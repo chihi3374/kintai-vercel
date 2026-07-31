@@ -179,7 +179,7 @@ export async function POST(req: Request) {
         if(
           row[0] === date &&
           String(row[1]) === String(employeeId) &&
-          row[4] === ""
+          (row[4] ?? "") === ""
         ){
 
           targetRow = index + 1;
