@@ -1,199 +1,526 @@
-"use client";
-
-import { useEffect, useState } from "react";
-
-type Employee = {
-  id: string;
-  name: string;
-  status: string;
-  hourly: number;
-};
-
-export default function EmployeesPage() {
-
-  const [employees, setEmployees] = useState<Employee[]>([]);
-  const [name, setName] = useState("");
-  const [hourly, setHourly] = useState("");
-  const [storeToken, setStoreToken] = useState("");
-
-  const [loading, setLoading] = useState(false);
+import { NextResponse } from "next/server";
+import { google } from "googleapis";
+import { sql } from "@/lib/db";
 
 
-  // ブラウザ側でのみ実行
-  useEffect(() => {
+// ===========================
+// Google Sheets取得
+// ===========================
+async function getSheets() {
 
-    const token = localStorage.getItem("storeToken");
+  const clientEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
 
-    if (token) {
-      setStoreToken(token);
-      loadEmployees(token);
+  const privateKey =
+    process.env.GOOGLE_SERVICE_ACCOUNT_KEY?.replace(/\\n/g, "\n");
+
+
+  const auth = new google.auth.JWT({
+    email: clientEmail,
+    key: privateKey,
+    scopes: [
+      "https://www.googleapis.com/auth/spreadsheets",
+    ],
+  });
+
+
+  return google.sheets({
+    version: "v4",
+    auth,
+  });
+
+}
+
+
+
+// ===========================
+// storeToken → Spreadsheet取得
+// ===========================
+async function getSpreadsheetId(storeToken:string){
+
+  const result = await sql`
+    SELECT spreadsheet_id
+    FROM company_settings
+    WHERE store_token = ${storeToken}
+    LIMIT 1
+  `;
+
+
+  if(result.length === 0){
+    throw new Error("店舗が見つかりません");
+  }
+
+
+  return result[0].spreadsheet_id;
+
+}
+
+
+
+// ===========================
+// GET 従業員一覧
+// ===========================
+export async function GET(req:Request){
+
+  try{
+
+    const {searchParams} = new URL(req.url);
+
+    const storeToken =
+      searchParams.get("storeToken");
+
+
+    if(!storeToken){
+
+      return NextResponse.json(
+        {
+          success:false,
+          error:"storeTokenがありません"
+        },
+        {
+          status:400
+        }
+      );
+
     }
 
-  }, []);
+
+    const spreadsheetId =
+      await getSpreadsheetId(storeToken);
+
+
+    const sheets =
+      await getSheets();
 
 
 
-  async function loadEmployees(token: string) {
+    const response =
+      await sheets.spreadsheets.values.get({
 
-    const res = await fetch(
-      `/api/employees?storeToken=${token}`
+        spreadsheetId,
+
+        range:"従業員!A2:D"
+
+      });
+
+
+    const rows =
+      response.data.values ?? [];
+
+
+
+    const employees =
+      rows
+      .filter(row => row[2] !== "削除")
+      .map(row => ({
+
+        id: row[0],
+
+        name: row[1],
+
+        status: row[2],
+
+        hourly: Number(row[3] ?? 0)
+
+      }));
+
+
+    return NextResponse.json({
+
+      success:true,
+
+      employees
+
+    });
+
+
+
+  }catch(error){
+
+    console.error(error);
+
+
+    return NextResponse.json(
+
+      {
+        success:false,
+        error:"従業員取得失敗"
+      },
+
+      {
+        status:500
+      }
+
     );
 
-    const data = await res.json();
-
-    if (data.success) {
-      setEmployees(data.employees);
-    }
-
   }
 
+}
 
 
-  async function addEmployee() {
 
-    if (!storeToken) {
-      alert("店舗情報がありません");
-      return;
+
+// ===========================
+// POST 従業員追加
+// ===========================
+export async function POST(req:Request){
+
+  try{
+
+
+    const {
+      storeToken,
+      name,
+      hourly
+    } = await req.json();
+
+
+
+    if(!storeToken || !name || !hourly){
+
+      return NextResponse.json(
+
+        {
+          success:false,
+          error:"入力不足"
+        },
+
+        {
+          status:400
+        }
+
+      );
+
     }
 
 
-    if (!name || !hourly) {
-      alert("名前と時給を入力してください");
-      return;
-    }
+
+    const spreadsheetId =
+      await getSpreadsheetId(storeToken);
 
 
-    setLoading(true);
+
+    const sheets =
+      await getSheets();
 
 
-    const res = await fetch("/api/employees", {
 
-      method: "POST",
+    const id =
+      crypto.randomUUID();
 
-      headers: {
-        "Content-Type": "application/json"
-      },
 
-      body: JSON.stringify({
 
-        storeToken,
-        name,
-        hourly: Number(hourly)
+    await sheets.spreadsheets.values.append({
 
-      })
+      spreadsheetId,
+
+      range:"従業員!A:D",
+
+      valueInputOption:"USER_ENTERED",
+
+
+      requestBody:{
+
+        values:[
+
+          [
+
+            id,
+
+            name,
+
+            "在籍",
+
+            Number(hourly)
+
+          ]
+
+        ]
+
+      }
 
     });
 
 
-    const data = await res.json();
 
+    return NextResponse.json({
 
-    if (!data.success) {
-      alert(data.error);
-      setLoading(false);
-      return;
-    }
+      success:true,
 
-
-    setName("");
-    setHourly("");
-
-    await loadEmployees(storeToken);
-
-    setLoading(false);
-
-  }
-
-
-
-  async function deleteEmployee(id:string) {
-
-    await fetch("/api/employees", {
-
-      method:"DELETE",
-
-      headers:{
-        "Content-Type":"application/json"
-      },
-
-      body:JSON.stringify({
-        storeToken,
-        id
-      })
+      id
 
     });
 
 
-    loadEmployees(storeToken);
+
+  }catch(error){
+
+    console.error(error);
+
+
+    return NextResponse.json(
+
+      {
+        success:false,
+        error:"従業員追加失敗"
+      },
+
+      {
+        status:500
+      }
+
+    );
 
   }
 
+}
 
 
-  return (
-    <main className="min-h-screen bg-gray-100 p-8">
-
-      <div className="max-w-xl mx-auto bg-white rounded-xl shadow p-6">
-
-        <h1 className="text-2xl font-bold mb-6">
-          従業員管理
-        </h1>
 
 
-        <input
-          className="border p-2 w-full mb-3"
-          placeholder="名前"
-          value={name}
-          onChange={(e)=>setName(e.target.value)}
-        />
+// ===========================
+// PUT 従業員編集
+// ===========================
+export async function PUT(req:Request){
+
+  try{
 
 
-        <input
-          className="border p-2 w-full mb-3"
-          placeholder="時給"
-          type="number"
-          value={hourly}
-          onChange={(e)=>setHourly(e.target.value)}
-        />
+    const {
+
+      storeToken,
+
+      id,
+
+      name,
+
+      status,
+
+      hourly
+
+    } = await req.json();
 
 
-        <button
-          onClick={addEmployee}
-          className="bg-blue-500 text-white px-4 py-2 rounded"
-        >
-          {loading ? "登録中..." : "追加"}
-        </button>
+
+    const spreadsheetId =
+      await getSpreadsheetId(storeToken);
 
 
-        <hr className="my-6"/>
+
+    const sheets =
+      await getSheets();
 
 
-        {employees.map((emp)=>(
 
-          <div
-            key={emp.id}
-            className="border p-3 mb-2 flex justify-between"
-          >
+    const response =
+      await sheets.spreadsheets.values.get({
 
-            <div>
-              <div>{emp.name}</div>
-              <div>{emp.hourly}円</div>
-            </div>
+        spreadsheetId,
+
+        range:"従業員!A:D"
+
+      });
 
 
-            <button
-              onClick={()=>deleteEmployee(emp.id)}
-              className="text-red-500"
-            >
-              削除
-            </button>
 
-          </div>
+    const rows =
+      response.data.values ?? [];
 
-        ))}
 
-      </div>
 
-    </main>
-  );
+    const index =
+      rows.findIndex(
+        row => row[0] === id
+      );
+
+
+
+    if(index === -1){
+
+      throw new Error("従業員なし");
+
+    }
+
+
+
+
+    await sheets.spreadsheets.values.update({
+
+      spreadsheetId,
+
+
+      range:`従業員!A${index+1}:D${index+1}`,
+
+
+      valueInputOption:"USER_ENTERED",
+
+
+      requestBody:{
+
+        values:[
+
+          [
+
+            id,
+
+            name ?? rows[index][1],
+
+            status ?? rows[index][2],
+
+            hourly ?? rows[index][3] ?? 0
+
+          ]
+
+        ]
+
+      }
+
+    });
+
+
+
+    return NextResponse.json({
+
+      success:true
+
+    });
+
+
+
+  }catch(error){
+
+    console.error(error);
+
+
+    return NextResponse.json(
+
+      {
+        success:false,
+        error:"編集失敗"
+      },
+
+      {
+        status:500
+      }
+
+    );
+
+  }
+
+}
+
+
+
+
+// ===========================
+// DELETE 従業員削除
+// ===========================
+export async function DELETE(req:Request){
+
+  try{
+
+
+    const {
+
+      storeToken,
+
+      id
+
+    } = await req.json();
+
+
+
+    const spreadsheetId =
+      await getSpreadsheetId(storeToken);
+
+
+
+    const sheets =
+      await getSheets();
+
+
+
+    const response =
+      await sheets.spreadsheets.values.get({
+
+        spreadsheetId,
+
+        range:"従業員!A:D"
+
+      });
+
+
+
+    const rows =
+      response.data.values ?? [];
+
+
+
+    const index =
+      rows.findIndex(
+        row => row[0] === id
+      );
+
+
+
+    if(index === -1){
+
+      throw new Error("従業員なし");
+
+    }
+
+
+
+    await sheets.spreadsheets.values.update({
+
+      spreadsheetId,
+
+      range:`従業員!C${index+1}`,
+
+      valueInputOption:"USER_ENTERED",
+
+
+      requestBody:{
+
+        values:[
+
+          [
+            "削除"
+          ]
+
+        ]
+
+      }
+
+    });
+
+
+
+    return NextResponse.json({
+
+      success:true
+
+    });
+
+
+
+  }catch(error){
+
+    console.error(error);
+
+
+    return NextResponse.json(
+
+      {
+        success:false,
+        error:"削除失敗"
+      },
+
+      {
+        status:500
+      }
+
+    );
+
+  }
+
 }
